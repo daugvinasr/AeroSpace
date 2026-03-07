@@ -93,11 +93,11 @@ final class FocusCommandTest: XCTestCase {
             assertEquals($0.focusWorkspace(), true)
         }
 
-        assertEquals(focus.windowOrNil?.windowId, 2)
+        assertEquals(focus.windowOrNil?.windowId, 1)
         try await FocusCommand.new(direction: .up).run(.defaultEnv, .emptyStdin)
-        assertEquals(focus.windowOrNil?.windowId, 2)
+        assertEquals(focus.windowOrNil?.windowId, 1)
         try await FocusCommand.new(direction: .down).run(.defaultEnv, .emptyStdin)
-        assertEquals(focus.windowOrNil?.windowId, 2)
+        assertEquals(focus.windowOrNil?.windowId, 1)
     }
 
     func testFocusNoWrapping() async throws {

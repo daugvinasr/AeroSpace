@@ -113,6 +113,8 @@ private let configParser: [String: any ParserProtocol<Config>] = [
     "start-at-login": Parser(\.startAtLogin, parseBool),
     "auto-reload-config": Parser(\.autoReloadConfig, parseBool),
     "automatically-unhide-macos-hidden-apps": Parser(\.automaticallyUnhideMacosHiddenApps, parseBool),
+    "focus-follows-mouse": Parser(\.focusFollowsMouse, parseBool),
+    "focus-follows-mouse-workspace-switch-delay-ms": Parser(\.focusFollowsMouseWorkspaceSwitchDelayMs, parseNonNegativeInt),
     "accordion-padding": Parser(\.accordionPadding, parseInt),
     persistentWorkspacesKey: Parser(\.persistentWorkspaces, parsePersistentWorkspaces),
     "exec-on-workspace-change": Parser(\.execOnWorkspaceChange, parseArrayOfStrings),
@@ -280,6 +282,11 @@ func parseConfigVersion(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConf
 
 func parseInt(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConfig<Int> {
     raw.asIntOrNil.orFailure(expectedActualTypeError(expected: .int, actual: raw.tomlType, backtrace))
+}
+
+func parseNonNegativeInt(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConfig<Int> {
+    parseInt(raw, backtrace)
+        .filter(.semantic(backtrace, "Must be greater than or equal to 0")) { $0 >= 0 }
 }
 
 func parseString(_ raw: Json, _ backtrace: ConfigBacktrace) -> ParsedConfig<String> {

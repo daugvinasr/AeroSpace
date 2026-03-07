@@ -183,6 +183,38 @@ final class ConfigTest: XCTestCase {
         )
     }
 
+    func testFocusFollowsMouseWorkspaceSwitchDelay() {
+        let (defaultParsed, defaultErrors) = parseConfig("")
+        assertEquals(defaultErrors, [])
+        assertEquals(defaultParsed.focusFollowsMouseWorkspaceSwitchDelayMs, 1000)
+
+        let (customParsed, customErrors) = parseConfig(
+            """
+            focus-follows-mouse-workspace-switch-delay-ms = 250
+            """,
+        )
+        assertEquals(customErrors, [])
+        assertEquals(customParsed.focusFollowsMouseWorkspaceSwitchDelayMs, 250)
+
+        let (disabledParsed, disabledErrors) = parseConfig(
+            """
+            focus-follows-mouse-workspace-switch-delay-ms = 0
+            """,
+        )
+        assertEquals(disabledErrors, [])
+        assertEquals(disabledParsed.focusFollowsMouseWorkspaceSwitchDelayMs, 0)
+
+        let (_, negativeErrors) = parseConfig(
+            """
+            focus-follows-mouse-workspace-switch-delay-ms = -1
+            """,
+        )
+        assertEquals(
+            negativeErrors,
+            ["focus-follows-mouse-workspace-switch-delay-ms: Must be greater than or equal to 0"],
+        )
+    }
+
     func testConfigParseError() {
         assertEquals(
             parseConfig("true").errors,

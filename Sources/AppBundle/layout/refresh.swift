@@ -78,11 +78,17 @@ func runLightSession<T>(
             let result = try await body()
             refreshModel()
 
-            let focusAfter = focus.windowOrNil
+            var focusAfter = focus.windowOrNil
 
             updateTrayText()
             SecureInputPanel.shared.refresh()
             try await layoutWorkspaces()
+            if applyPostLayoutWorkspaceFocusRepair() {
+                focusAfter = focus.windowOrNil
+                checkOnFocusChangedCallbacks()
+                updateTrayText()
+                SecureInputPanel.shared.refresh()
+            }
             if focusBefore != focusAfter {
                 focusAfter?.nativeFocus() // syncFocusToMacOs
             }

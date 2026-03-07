@@ -53,12 +53,37 @@ private struct FrozenFocus: AeroAny, Equatable, Sendable {
     let monitor = mainMonitor
     return FrozenFocus(windowId: nil, workspaceName: monitor.activeWorkspace.name, monitorId_oneBased: monitor.monitorId_oneBased ?? 0)
 }()
+@MainActor private var pendingPostLayoutWorkspaceFocusRepair: Workspace? = nil
 
 /// Global focus.
 /// Commands must be cautious about accessing this property directly. There are legitimate cases.
 /// But, in general, commands must firstly check --window-id, --workspace, AEROSPACE_WINDOW_ID env and
 /// AEROSPACE_WORKSPACE env before accessing the global focus.
 @MainActor var focus: LiveFocus { _focus.live }
+
+@MainActor
+func schedulePostLayoutWorkspaceFocusRepair(_ workspace: Workspace) {
+    if !isUnitTest {
+        pendingPostLayoutWorkspaceFocusRepair = workspace
+    }
+}
+
+@MainActor
+func applyPostLayoutWorkspaceFocusRepair() -> Bool {
+    guard let workspace = pendingPostLayoutWorkspaceFocusRepair else { return false }
+    pendingPostLayoutWorkspaceFocusRepair = nil
+    guard focus.workspace == workspace else { return false }
+
+    let point = mouseLocation
+    let window = resolveTopmostWindowUnderCursor(point, on: workspace)?.takeIf { $0.isFloating } ??
+        point.findIn(tree: workspace.rootTilingContainer, virtual: false) ??
+        point.findIn(tree: workspace.rootTilingContainer, virtual: true) ??
+        resolveTopmostWindowUnderCursor(point, on: workspace) ??
+        workspace.anyLeafWindowRecursive
+    let newFocus = LiveFocus(windowOrNil: window, workspace: workspace)
+    if focus == newFocus { return false }
+    return setFocus(to: newFocus)
+}
 
 @MainActor func setFocus(to newFocus: LiveFocus) -> Bool {
     if _focus == newFocus.frozen { return true }
@@ -70,6 +95,9 @@ private struct FrozenFocus: AeroAny, Equatable, Sendable {
 
     _focus = newFocus.frozen
     let status = newFocus.workspace.workspaceMonitor.setActiveWorkspace(newFocus.workspace)
+    if status && oldFocus.workspace != newFocus.workspace {
+        handleWorkspaceSwitchForFocusFollowsMouse(to: newFocus.workspace)
+    }
 
     newFocus.windowOrNil?.markAsMostRecentChild()
     return status
@@ -90,10 +118,9 @@ extension Window {
 extension Workspace {
     @MainActor func focusWorkspace() -> Bool { setFocus(to: toLiveFocus()) }
 
+    @MainActor
     func toLiveFocus() -> LiveFocus {
-        // todo unfortunately mostRecentWindowRecursive may recursively reach empty rootTilingContainer
-        //      while floating or macos unconventional windows might be presented
-        if let wd = mostRecentWindowRecursive ?? anyLeafWindowRecursive {
+        if let wd = resolveTopmostWindowUnderCursor(mouseLocation, on: self) ?? anyLeafWindowRecursive {
             LiveFocus(windowOrNil: wd, workspace: self)
         } else {
             LiveFocus(windowOrNil: nil, workspace: self) // emptyWorkspace
